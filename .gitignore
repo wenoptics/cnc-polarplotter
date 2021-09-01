@@ -3,3 +3,7 @@
 # Some local files
 /dev/
 /test_data/
+
+# Python
+__pycache__/
+.venv/

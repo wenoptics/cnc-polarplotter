@@ -1,75 +1,85 @@
+import logging
+
 import serial
 
-IDLE_BYTES = b'> \n'
-
-def wait_for_idle(s):
-    return s.read_until(IDLE_BYTES)
-
-def wait_read(s):
-    msg = b''
-    while not msg:
-        msg = s.readline()
-        # time.sleep(0.1)
-    msg += s.read_until(IDLE_BYTES)
-    return msg.rstrip(IDLE_BYTES)
-
-def send_code(s, bytes: bytes):
-    if type(bytes) is str:
-        bytes = bytes.encode()
-
-    if not bytes.endswith(b'\n'):
-        bytes += b'\n'
-
-    print('[Debug] sending: {}'.format(bytes))
-    s.write(bytes)
+logger = logging.getLogger(__name__)
 
 
-# with serial.Serial("COM5", 57600) as s:
-s = serial.Serial()
-s.port = 'COM5'
-s.baudrate = 57600
-s.open()
+class MakelangoleRobot:
+    IDLE_BYTES = b'> \n'
 
-welcome_msg = wait_read(s)
-print(welcome_msg)
+    def __init__(self, port: str, baudrate=57600):
+        self._serial = serial.Serial()
+        self._serial.port = port
+        self._serial.baudrate = 57600
 
-# Report current firmware version
-send_code(s, b'D5')
-print(wait_read(s))
+    def _wait_for_idle(self):
+        return self._serial.read_until(self.IDLE_BYTES)
 
-# Report all settings
-send_code(s, b'M503')
-print(wait_read(s))
+    def _wait_read(self):
+        msg = b''
+        while not msg:
+            msg = self._serial.readline()
+            # time.sleep(0.1)
+        msg += self._serial.read_until(self.IDLE_BYTES)
+        return msg.rstrip(self.IDLE_BYTES)
 
-send_code(s, b'M17')
-print(wait_read(s))
+    def _send_gcode(self, bytes: bytes):
+        if type(bytes) is str:
+            bytes = bytes.encode()
 
-# Change axis A limits to max T and min B
-send_code(s, b'M101 A0 T242.5 B-242.5')
-send_code(s, b'M101 A1 T464 B-464')
-send_code(s, b'M101 A2 T170 B90')
+        if not bytes.endswith(b'\n'):
+            bytes += b'\n'
 
-# Teleport
-send_code(s, b'G92 X0 Y-472')
-print(wait_read(s))
+        logger.debug('Sending: {}'.format(bytes))
+        self._serial.write(bytes)
 
-# Set home
-send_code(s, b'D6 X0 Y-472')
-print(wait_read(s))
+    def init_connection(self):
+        if not self._serial.is_open:
+            self._serial.open()
 
-send_code(s, b'M17')
-print(wait_read(s))
+        welcome_msg = self._wait_read()
+        logger.info('Receive welcome message: {}'.format(welcome_msg.decode()))
 
-# Write GCODE
-with open('../test_data/t3_modified.ngc') as f:
-    for n, l in enumerate(f.readlines()):
-        l = l.strip()
-        if l.startswith(';') or l.startswith('('):
-            continue
-        
-        print(f'Processing line {n}')
-        send_code(s, l)
-        wait_for_idle(s)
+        # Report current firmware version
+        self._send_gcode('D5')
+        logger.debug('Received: {}'.format(self._wait_read()))
 
+        # Report all settings
+        self._send_gcode('M503')
+        logger.debug('Received: {}'.format(self._wait_read()))
 
-send_code(s, 'G00 X0 Y-472 F20')
+        self._send_gcode('M17')
+        logger.debug('Received: {}'.format(self._wait_read()))
+
+        # Change axis A limits to max T and min B
+        self._send_gcode('M101 A0 T242.5 B-242.5')
+        self._send_gcode('M101 A1 T464 B-464')
+        self._send_gcode('M101 A2 T170 B90')
+
+        # Teleport
+        self._send_gcode('G92 X0 Y-472')
+        logger.debug('Received: {}'.format(self._wait_read()))
+
+        # Set home
+        self._send_gcode('D6 X0 Y-472')
+        logger.debug('Received: {}'.format(self._wait_read()))
+
+        self._send_gcode('M17')
+        logger.debug('Received: {}'.format(self._wait_read()))
+
+    def run_file(self, gcode_path: str):
+        # Write GCODE
+        with open(gcode_path) as f:
+            for n, code in enumerate(f.readlines()):
+                logger.debug('Processing line {}'.format(n))
+
+                code = code.strip()
+                if code.startswith(';') or code.startswith('('):
+                    continue
+
+                self._send_gcode(code)
+                self._wait_for_idle()
+
+        # Goto init position
+        self._send_gcode('G00 X0 Y-472 F20')

@@ -1,17 +1,47 @@
+from dataclasses import dataclass
 import logging
+from typing import Optional
 
 import serial
 
 logger = logging.getLogger(__name__)
 
 
+class Point:
+    def __init__(self, x=0, y=0) -> None:
+        self.x = x
+        self.y = y
+
+    @property
+    def gcode(self):
+        return f'X{self.x} Y{self.y}'
+
+    def __str__(self) -> str:
+        return f'({self.gcode})'
+
+
 class MakelangoleRobot:
     IDLE_BYTES = b'> \n'
 
-    def __init__(self, port: str, baudrate=57600):
+    @dataclass
+    class Settings:
+        # General settings
+        motor_width_mm: float = 500
+        speed_idle: float = 30
+
+        # Servo settings
+        speed_draw: float = 20
+        speed_pen_lift: float = 50
+
+        angle_pen_up: float = 90
+        angle_pen_down: float = 160
+
+    def __init__(self, port: str, baudrate=57600,
+                 settings: Optional['MakelangoleRobot.Settings'] = None):
         self._serial = serial.Serial()
         self._serial.port = port
         self._serial.baudrate = 57600
+        self._current_settings = settings
 
     def _wait_for_idle(self):
         return self._serial.read_until(self.IDLE_BYTES)
@@ -41,6 +71,17 @@ class MakelangoleRobot:
         welcome_msg = self._wait_read()
         logger.info('Receive welcome message: {}'.format(welcome_msg.decode()))
 
+        self.apply_settings()
+
+    def apply_settings(self,
+                       settings: Optional['MakelangoleRobot.Settings'] = None):
+        if settings:
+            self._current_settings = settings
+
+        s = self._current_settings
+        if s is None:
+            raise
+
         # Report current firmware version
         self._send_gcode('D5')
         logger.debug('Received: {}'.format(self._wait_read()))
@@ -53,20 +94,37 @@ class MakelangoleRobot:
         logger.debug('Received: {}'.format(self._wait_read()))
 
         # Change axis A limits to max T and min B
+        # TODO
         self._send_gcode('M101 A0 T242.5 B-242.5')
         self._send_gcode('M101 A1 T464 B-464')
         self._send_gcode('M101 A2 T170 B90')
 
-        # Teleport
-        self._send_gcode('G92 X0 Y-472')
-        logger.debug('Received: {}'.format(self._wait_read()))
-
-        # Set home
-        self._send_gcode('D6 X0 Y-472')
-        logger.debug('Received: {}'.format(self._wait_read()))
+        self.make_home(Point(0, -472))
 
         self._send_gcode('M17')
         logger.debug('Received: {}'.format(self._wait_read()))
+
+        # Set initial feed rate
+        self._send_gcode(f'G00 X0 F{s.speed_idle}')
+        logger.debug('Received: {}'.format(self._wait_read()))
+
+    def set_home(self, p: Point):
+        # Set home
+        self._send_gcode(f'D6 {p.gcode}')
+        logger.debug('Received: {}'.format(self._wait_read()))
+
+    def make_home(self, p: Point):
+        # Teleport
+        self._send_gcode(f'G92 {p.gcode}')
+        logger.debug('Received: {}'.format(self._wait_read()))
+
+        self.set_home(p)
+
+    def go_home(self, speed=None):
+        if speed is None:
+            speed = self._current_settings.speed_idle
+
+        self._send_gcode(f'G28 F{speed}')
 
     def run_file(self, gcode_path: str):
         # Write GCODE

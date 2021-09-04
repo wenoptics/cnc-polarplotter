@@ -1,10 +1,12 @@
 from dataclasses import dataclass
 import logging
 from typing import Optional
+import time
 
 import serial
 
 from gcode_robot.common import Point
+from gcode_robot.utils import gcode_reader
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +33,13 @@ class MakelangoleRobot:
         self._serial.port = port
         self._serial.baudrate = baudrate
         self._current_settings = settings
+        self._home = Point(0, 0)
 
     def _wait_for_idle(self):
-        return self._serial.read_until(self.IDLE_BYTES)
+        _t = time.time()
+        ret = self._serial.read_until(self.IDLE_BYTES)
+        logger.debug('Spent {:.2f} ms waiting for idle'.format(time.time() - _t))
+        return ret
 
     def _wait_read(self):
         msg = b''
@@ -88,6 +94,7 @@ class MakelangoleRobot:
         self._send_gcode('M101 A1 T464 B-464')
         self._send_gcode('M101 A2 T170 B90')
 
+        # TODO Allow home to be configured
         self.make_home(Point(0, -472))
 
         self._send_gcode('M17')
@@ -100,6 +107,7 @@ class MakelangoleRobot:
     def set_home(self, p: Point):
         # Set home
         self._send_gcode(f'D6 {p.gcode}')
+        self._home = p
         logger.debug('Received: {}'.format(self._wait_read()))
 
     def make_home(self, p: Point):
@@ -113,20 +121,25 @@ class MakelangoleRobot:
         if speed is None:
             speed = self._current_settings.speed_idle
 
-        self._send_gcode(f'G28 F{speed}')
+        # self._send_gcode(f'G28 F{speed}')
+        self._send_gcode(f'G00 {str(self._home)} F{speed}')
+
+    def run_code_block(self, raw: str):
+
+        self._wait_for_idle()
+
+        n = 0
+        for code in gcode_reader(raw):
+            n += 1
+            logger.debug('Processing line {}'.format(n))
+
+            self._send_gcode(code)
+            self._wait_for_idle()
 
     def run_file(self, gcode_path: str):
         # Write GCODE
         with open(gcode_path) as f:
-            for n, code in enumerate(f.readlines()):
-                logger.debug('Processing line {}'.format(n))
-
-                code = code.strip()
-                if code.startswith(';') or code.startswith('('):
-                    continue
-
-                self._send_gcode(code)
-                self._wait_for_idle()
+            self.run_code_block(f)
 
         # Goto init position
-        self._send_gcode('G00 X0 Y-472 F20')
+        self.go_home()

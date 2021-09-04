@@ -4,20 +4,9 @@ from typing import Optional
 
 import serial
 
+from gcode_robot.common import Point
+
 logger = logging.getLogger(__name__)
-
-
-class Point:
-    def __init__(self, x=0, y=0) -> None:
-        self.x = x
-        self.y = y
-
-    @property
-    def gcode(self):
-        return f'X{self.x} Y{self.y}'
-
-    def __str__(self) -> str:
-        return f'({self.gcode})'
 
 
 class MakelangoleRobot:
@@ -40,7 +29,7 @@ class MakelangoleRobot:
                  settings: Optional['MakelangoleRobot.Settings'] = None):
         self._serial = serial.Serial()
         self._serial.port = port
-        self._serial.baudrate = 57600
+        self._serial.baudrate = baudrate
         self._current_settings = settings
 
     def _wait_for_idle(self):
@@ -94,8 +83,8 @@ class MakelangoleRobot:
         logger.debug('Received: {}'.format(self._wait_read()))
 
         # Change axis A limits to max T and min B
-        # TODO
-        self._send_gcode('M101 A0 T242.5 B-242.5')
+        half_width = self._current_settings.motor_width_mm / 2
+        self._send_gcode(f'M101 A0 T{half_width} B{-half_width}')
         self._send_gcode('M101 A1 T464 B-464')
         self._send_gcode('M101 A2 T170 B90')
 

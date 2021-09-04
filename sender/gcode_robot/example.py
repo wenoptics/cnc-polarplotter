@@ -1,6 +1,6 @@
 import logging
 
-from main import MakelangoleRobot
+from gcode_robot.main import MakelangoleRobot
 
 
 if __name__ == '__main__':
@@ -20,4 +20,6 @@ if __name__ == '__main__':
     mr = MakelangoleRobot('COM5', settings=s)
     mr.init_connection()
 
-    mr.run_file('../test_data/t0_simple_oval.ngc')
+    # mr.run_file('../test_data/t2_cat_frame.ngc')
+    # input()
+    mr.run_file('../test_data/t4_cat.ngc')

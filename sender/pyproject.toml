@@ -1,8 +1,8 @@
 [tool.poetry]
-name = "gcode_sender"
+name = "gcode_robot"
 version = "0.1.0"
 description = ""
-authors = ["Grayson Wen <wenoptics@163.com>"]
+authors = ["Grayson Wen <wenoptics@gmail.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.8"
@@ -10,6 +10,7 @@ pyserial = "^3.5"
 
 [tool.poetry.dev-dependencies]
 flake8 = "^3.9.2"
+pytest = "^6.2.5"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

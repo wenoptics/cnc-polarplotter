@@ -3,23 +3,18 @@ import io
 from typing import TextIO, Union
 
 from gcode_robot.common import Point
-from gcode_robot.gcode import GCodeStatement, clean_line
+from gcode_robot.gcode import GCodeLine
 
 DEFAULT_PEN_DOWN = lambda g: g.args.get('Z') and 160 == float(g.args['Z'].value)
 DEFAULT_PEN_UP = lambda g: g.args.get('Z') and 90 == float(g.args['Z'].value)
 
 
-def gcode_reader(raw: Union[str, TextIO], clean_comment=True):
+def gcode_reader(raw: Union[str, TextIO]):
     if isinstance(raw, str):
         raw = io.StringIO(raw)
 
     for li in raw.readlines():
-        if clean_comment:
-            li = clean_line(li)
-            if not li:
-                continue
-
-        yield li
+        yield GCodeLine.from_str(li)
 
 
 def calc_bounding_area(
@@ -30,7 +25,10 @@ def calc_bounding_area(
 
     _writing = False
     for li in gcode_reader(gcode):
-        g = GCodeStatement.from_str(li)
+        g = li.statement
+        if not g:
+            continue
+
         if is_pen_down(g):
             _writing = True
         elif is_pen_up(g):
@@ -48,8 +46,9 @@ def calc_bounding_area(
                 min_y = min(min_y, float(y.value))
                 max_y = max(max_y, float(y.value))
 
-    assert math.inf not in (min_x, min_y, max_x, max_y)
-    assert -math.inf not in (min_x, min_y, max_x, max_y)
+    _t = (min_x, min_y, max_x, max_y)
+    if (math.inf in _t) or (-math.inf in _t):
+        raise RuntimeError('Calculation cannot be finishied. Maybe because of not finding any pen-down drawings.')
 
     return Point(min_x, min_y), Point(max_x, max_y)
 

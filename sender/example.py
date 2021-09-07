@@ -18,17 +18,21 @@ if __name__ == '__main__':
         speed_draw=30,
         speed_pen_lift=100,
         angle_pen_up=90,
-        angle_pen_down=160,
+        angle_pen_down=150,
     )
 
     mr = MakelangoleRobot('COM5', settings=s)
     mr.init_connection()
 
-    ngc = CUR_DIR / '../test_data/t0_simple_oval.ngc'
+    ngc = CUR_DIR / '../test_data/t4_cat_slic3r_concentric.ngc'
 
     # Draw a bounding box
     with open(ngc) as f:
-        p1, p2 = utils.calc_bounding_area(f.read())
+        p1, p2 = utils.calc_bounding_area(
+            f.read(),
+            is_pen_down=lambda g: g.args.get('Z') and s.angle_pen_down == float(g.args['Z'].value),
+            is_pen_up=lambda g: g.args.get('Z') and s.angle_pen_up == float(g.args['Z'].value)
+        )
 
     input(f'Bounding box: ({p1}, {p2}). ANY KEY TO CONTINUE...')
     mr.run_code_block(f"""

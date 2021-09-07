@@ -1,10 +1,13 @@
-from gcode_robot.gcode import GCodeStatement, clean_line
+from gcode_robot.gcode import GCodeStatement, GCodeLine
 
 
 def test_gcode_parser():
     ori = 'G01 X21.194500 Y-125.353000 Z160 F25'
-    raw = clean_line(ori)
-    g = GCodeStatement.from_str(raw)
+
+    raw = GCodeLine.from_str(ori)
+    g = GCodeStatement.from_str(ori)
+    assert str(raw.statement) == str(g)
+
     assert str(g) == ori
     assert g.cmd.variable == 'G'
     assert g.cmd == 'G01'
@@ -12,12 +15,14 @@ def test_gcode_parser():
     assert g.args['Z'].value == '160'
 
     ori = 'G01 X21.194500 Y-125.353000 Z160 F25'
-    raw = clean_line(ori + ';comment()')
-    g = GCodeStatement.from_str(raw)
-    assert str(g) == ori
+    g = GCodeLine.from_str(ori + ';comment()')
+    assert str(g.statement) == ori
 
     ori = '; G01 X21.194500 Y-125.353000 Z160 F25'
-    assert clean_line(ori) == ''
+    g = GCodeLine.from_str(ori)
+    assert str(g) == ''
+    assert g.statement is None
+    assert g.comment is not None
 
 
 def test_eq():

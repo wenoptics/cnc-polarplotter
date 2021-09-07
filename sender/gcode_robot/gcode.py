@@ -60,19 +60,43 @@ class GCodeStatement:
         return cls(cmd, args)
 
 
-def clean_line(raw: str):
-    # Remove comments, i.e. ; and ( and %
-    raw = raw.split(';', 1)[0]
-    raw = raw.split('(', 1)[0]
-    raw = raw.split('%', 1)[0]
-    raw = raw.strip()
-    return raw
+class GCodeLine:
+    def __init__(self, statement: Optional[GCodeStatement] = None, comment: Optional[str] = None):
+        self.statement = statement
+        self.comment = comment
+
+    def __str__(self):
+        if self.statement is None:
+            return ''
+        return str(self.statement)
+
+    @classmethod
+    def from_str(cls, raw: str):
+        comment = None
+
+        # Parse ";" comments
+        s = raw.split(';', 1)
+        raw = s[0]
+        if len(s) > 1:
+            comment = s[1].strip()
+
+        # Remove other comments, i.e. ( and %
+        raw = raw.split('(', 1)[0]  # TODO
+        raw = raw.split('%', 1)[0]
+        raw = raw.strip()
+
+        if not raw:
+            raw = None
+        else:
+            raw = GCodeStatement.from_str(raw)
+
+        return cls(raw, comment)
 
 
 if __name__ == '__main__':
     # Some quick inline tests
-    print(str(
-        GCodeStatement.from_str('G01 X21.194500 Y-125.353000 Z160 F25')
-    ))
+    g = GCodeLine.from_str('G01 X21.194500 Y-125.353000 Z160 F25')
+    print(g.statement, g.comment)
 
-    print(clean_line('; Comments G01 X21.194500 Y-125.353000 Z160 F25'))
+    g = GCodeLine.from_str('; Comments G01 X21.194500 Y-125.353000 Z160 F25')
+    print(g.statement, g.comment)

@@ -1,12 +1,13 @@
 from dataclasses import dataclass
 import logging
-from typing import Optional
+from typing import Optional, Union
 import time
 
 import serial
 
 from gcode_robot.common import Point
 from gcode_robot.utils import gcode_reader
+from gcode_robot.gcode import GCodeLine, GCodeStatement
 
 logger = logging.getLogger(__name__)
 
@@ -49,15 +50,21 @@ class MakelangoleRobot:
         msg += self._serial.read_until(self.IDLE_BYTES)
         return msg.rstrip(self.IDLE_BYTES)
 
-    def _send_gcode(self, bytes: bytes):
-        if type(bytes) is str:
-            bytes = bytes.encode()
+    def _send_gcode(self, line: Union[str, bytes, GCodeLine, GCodeStatement]):
+        if isinstance(line, GCodeLine):
+            line = line.statement
+        if isinstance(line, GCodeStatement):
+            line = str(line)
+        if type(line) is str:
+            line = line.encode()
+        if line is None:
+            return
 
-        if not bytes.endswith(b'\n'):
-            bytes += b'\n'
+        if not line.endswith(b'\n'):
+            line += b'\n'
 
-        logger.debug('Sending: {}'.format(bytes))
-        self._serial.write(bytes)
+        logger.debug('Sending: {}'.format(line))
+        self._serial.write(line)
 
     def init_connection(self):
         if not self._serial.is_open:
@@ -129,17 +136,27 @@ class MakelangoleRobot:
         self._wait_for_idle()
 
         n = 0
-        for code in gcode_reader(raw):
+        for line in gcode_reader(raw):
             n += 1
+
+            if not line.statement:
+                continue
+
             logger.debug('Processing line {}'.format(n))
 
-            self._send_gcode(code)
+            self._send_gcode(line)
             self._wait_for_idle()
 
     def run_file(self, gcode_path: str):
+        # Make sure to lift pen
+        self._send_gcode(f'G01 Z{self._current_settings.angle_pen_up} F{self._current_settings.speed_pen_lift}')
+
         # Write GCODE
         with open(gcode_path) as f:
             self.run_code_block(f)
+
+        # Make sure to lift pen
+        self._send_gcode(f'G01 Z{self._current_settings.angle_pen_up} F{self._current_settings.speed_pen_lift}')
 
         # Goto init position
         self.go_home()

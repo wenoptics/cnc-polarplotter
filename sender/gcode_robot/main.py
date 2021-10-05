@@ -39,7 +39,8 @@ class MakelangoleRobot:
     def _wait_for_idle(self):
         _t = time.time()
         ret = self._serial.read_until(self.IDLE_BYTES)
-        logger.debug('Spent {:.2f} ms waiting for idle'.format(time.time() - _t))
+        logger.debug('Spent {:.2f} ms waiting for idle'
+                     .format(time.time() - _t))
         return ret
 
     def _wait_read(self):
@@ -149,14 +150,51 @@ class MakelangoleRobot:
 
     def run_file(self, gcode_path: str):
         # Make sure to lift pen
-        self._send_gcode(f'G01 Z{self._current_settings.angle_pen_up} F{self._current_settings.speed_pen_lift}')
+        self._send_gcode(f'G01 '
+                         f'Z{self._current_settings.angle_pen_up} '
+                         f'F{self._current_settings.speed_pen_lift}')
 
         # Write GCODE
         with open(gcode_path) as f:
             self.run_code_block(f)
 
         # Make sure to lift pen
-        self._send_gcode(f'G01 Z{self._current_settings.angle_pen_up} F{self._current_settings.speed_pen_lift}')
+        self._send_gcode(f'G01 '
+                         f'Z{self._current_settings.angle_pen_up} '
+                         f'F{self._current_settings.speed_pen_lift}')
 
         # Goto init position
         self.go_home()
+
+    def show_init_diagram(self):
+        diagram = r"""
+                         W
+             │◄───────────────────►│
+             |                     |
+        ┌──┬───┬─────────────────┬───┬──┐
+        │  │ o │                 │ o │  │  ───
+        │  └───┘                 └───┘  │    ▲
+        │      \                 /      │    │
+        │       \               /       │    │
+        │        \             /        │    │
+        │         \           /         │    │
+        │          \         /          │    │ H
+        │           \       /           │    │
+        │            \     /            │    │
+        │             ┌───┐             │    │
+        │             │   │             │    ▼
+        │             │ x │             │  ───
+        │             └───┘             │
+        │                               │
+        │                               │
+        │                               │
+        └───────────────────────────────┘
+
+        (All units are in millimeter(mm) )
+        W: The distance between the two motors
+        H: The vertical distance between the motor and the pen
+
+        """
+        print('Please confirm the following initialization:')
+        print(f'W = {self._current_settings.motor_width_mm},\nH = {"?"}')
+        print(diagram)

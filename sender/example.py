@@ -9,7 +9,7 @@ CUR_DIR = Path(__file__).parent
 
 if __name__ == '__main__':
 
-    logging.basicConfig(format='[%(levelname)s][%(asctime)-15s][%(module)s] %(message)s')
+    logging.basicConfig(format='[%(levelname)s][%(asctime)-15s][%(module)s] %(message)s')  # noqa: E501
     logging.getLogger().setLevel(logging.DEBUG)
 
     s = MakelangoleRobot.Settings(
@@ -24,14 +24,17 @@ if __name__ == '__main__':
     mr = MakelangoleRobot('COM5', settings=s)
     mr.init_connection()
 
-    ngc = CUR_DIR / '../test_data/t4_cat_slic3r_concentric.ngc'
+    mr.show_init_diagram()
+    input('ANY KEY TO CONFIRM...')
+
+    ngc = CUR_DIR / '../test_data/cat-hang_0002.ngc'
 
     # Draw a bounding box
     with open(ngc) as f:
         p1, p2 = utils.calc_bounding_area(
             f.read(),
-            is_pen_down=lambda g: g.args.get('Z') and s.angle_pen_down == float(g.args['Z'].value),
-            is_pen_up=lambda g: g.args.get('Z') and s.angle_pen_up == float(g.args['Z'].value)
+            is_pen_down=lambda g: g.args.get('Z') and s.angle_pen_down == float(g.args['Z'].value),  # noqa: E501
+            is_pen_up=lambda g: g.args.get('Z') and s.angle_pen_up == float(g.args['Z'].value)  # noqa: E501
         )
 
     input(f'Bounding box: ({p1}, {p2}). ANY KEY TO CONTINUE...')
@@ -46,5 +49,5 @@ if __name__ == '__main__':
     """)
     mr.go_home()
 
-    input('ANY KEY TO CONTINUE...')
+    input('ANY KEY TO START...')
     mr.run_file(ngc)

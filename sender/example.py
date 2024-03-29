@@ -21,7 +21,7 @@ if __name__ == '__main__':
         angle_pen_down=150,
     )
 
-    mr = MakelangoleRobot('COM5', settings=s)
+    mr = MakelangoleRobot('COM3', settings=s)
     mr.init_connection()
 
     mr.show_init_diagram()

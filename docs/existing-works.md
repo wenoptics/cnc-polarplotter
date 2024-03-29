@@ -26,3 +26,6 @@
 
   ![](2021-09-07-10-36-17.png)
 
+- [Fumik](https://www.fumik.com/) - Fixed belt
+  
+  ![alt text](image.png)
